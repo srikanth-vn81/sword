@@ -1,7 +1,11 @@
+import logging
 import streamlit as st
 import pandas as pd
 from sqlalchemy import create_engine
 from datetime import datetime
+
+# Set up logging
+logging.basicConfig(level=logging.DEBUG)
 
 # Access the secrets from the .streamlit/secrets.toml file
 db_config = st.secrets["database"]
@@ -12,8 +16,13 @@ port = db_config["port"]  # Default MariaDB port
 user = db_config["user"]
 password = db_config["password"]
 
-# Create a database connection using pymysql with SQLAlchemy
-engine = create_engine(f'mysql+pymysql://{user}:{password}@{host}:{port}')
+# Attempt to connect to the database
+try:
+    engine = create_engine(f'mysql+pymysql://{user}:{password}@{host}:{port}')
+except Exception as e:
+    st.error("Failed to connect to the database.")
+    logging.error("Database connection error:", exc_info=e)
+    st.stop()
 
 # Hardcoded facility options
 facility_options = ['AIP', 'AIN', 'A03', 'S01']
@@ -40,7 +49,12 @@ def fetch_filtered_options(selected_facilities):
     return df['SBU'].dropna().unique().tolist(), df['FLG'].dropna().unique().tolist(), df['Buyer'].dropna().unique().tolist()
 
 # Adjust other dropdowns based on selected facilities
-sbu_options, flg_options, buyer_options = fetch_filtered_options(selected_facilities)
+try:
+    sbu_options, flg_options, buyer_options = fetch_filtered_options(selected_facilities)
+except Exception as e:
+    st.error("Failed to fetch filter options.")
+    logging.error("Error fetching filter options:", exc_info=e)
+    st.stop()
 
 # Sidebar for SBU, FLG, Buyer
 selected_sbus = st.sidebar.multiselect("Select SBUs", options=sbu_options)
@@ -82,9 +96,14 @@ WHERE {' AND '.join(conditions)}
 # Run the SQL query and load the data into a DataFrame
 @st.cache_data
 def load_data(query):
-    with engine.connect() as conn:
-        data = pd.read_sql(query, conn)
-    return data
+    try:
+        with engine.connect() as conn:
+            data = pd.read_sql(query, conn)
+        return data
+    except Exception as e:
+        st.error("Failed to load data.")
+        logging.error("Error loading data:", exc_info=e)
+        st.stop()
 
 # Load data (but do not display it)
 data = load_data(query)
@@ -103,4 +122,3 @@ st.download_button(
     file_name='filtered_data.csv',
     mime='text/csv',
 )
-
