@@ -40,13 +40,18 @@ def fetch_filtered_options(selected_facilities):
         FROM brandix_production.aplrejection_wip
         WHERE Facility IN ({selected_facilities_str})
         """
+        logging.debug(f"SQL Query for filtering: {query}")
     else:
         query = "SELECT DISTINCT SBU, FLG, Buyer FROM brandix_production.aplrejection_wip WHERE 1=0"  # No data when no facility is selected
 
-    with engine.connect() as conn:
-        df = pd.read_sql(query, conn)
-    
-    return df['SBU'].dropna().unique().tolist(), df['FLG'].dropna().unique().tolist(), df['Buyer'].dropna().unique().tolist()
+    try:
+        with engine.connect() as conn:
+            df = pd.read_sql(query, conn)
+        logging.debug("Fetched data for dropdowns.")
+        return df['SBU'].dropna().unique().tolist(), df['FLG'].dropna().unique().tolist(), df['Buyer'].dropna().unique().tolist()
+    except Exception as e:
+        logging.error("Error executing the SQL query or fetching data:", exc_info=e)
+        raise
 
 # Adjust other dropdowns based on selected facilities
 try:
